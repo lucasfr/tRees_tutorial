@@ -5,6 +5,9 @@ output: html_notebook
 
 ```{r}
 library(tidyverse)
+library(sf) 
+library(geojsonio)
+library(ggthemes)
 ```
 
 
@@ -21,5 +24,261 @@ borough_trees <- trees %>%
   dplyr::ungroup()
 
 borough_trees <- merge(borough_trees, pop)
+
+## LAD DATA ()
+
+lad_json <- geojson_read(
+  x = "https://opendata.arcgis.com/datasets/fab4feab211c4899b602ecfbfbc420a3_4.geojson",
+  what = "sp"  # spatial class
+)
+
+lad_sf <- st_as_sf(lad_json)  # convert to {sf} format
 ```
 
+# Pipe operator %>%
+
+```{r eval=FALSE, include=FALSE}
+h(g(f(x)))
+
+x %>% 
+  f() %>% 
+  g() %>% 
+  h() 
+```
+
+
+# A simple scatter plot
+
+```{r}
+borough_trees %>% 
+  ggplot2::ggplot(aes(x = Population, 
+                      y = t_count)) + 
+  geom_point()
+  #geom_point(aes(colour = max_height))
+  #geom_line()
+```
+
+# Bar plots
+
+```{r}
+top_borough_tree <- borough_trees %>% 
+  dplyr::arrange(., dplyr::desc(t_count)) %>% 
+  head(20) 
+
+top_borough_tree %>% 
+  ggplot2::ggplot(aes(x = borough, y = t_count)) + 
+  geom_col()
+```
+
+```{r}
+top_borough_tree %>% 
+  ggplot2::ggplot(aes(x = stats::reorder(borough, 
+                                         t_count), 
+                      y = t_count)) + 
+  geom_col() + 
+  coord_flip() + 
+  xlab(element_blank()) + 
+  ylab('# of hill') 
+```
+
+# Violin plots
+
+```{r}
+trees %>% 
+  dplyr::group_by(borough, display_name) %>% 
+  dplyr::summarise(sp_count = table(display_name)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(borough %in% c('Bromley', 
+                            'Enfield', 
+                            'Southwark',
+                            'Waltham Forest', 
+                            'Ealing')) %>% 
+    ggplot2::ggplot(aes(x = borough, 
+                        y = sp_count)) +
+    geom_violin()
+```
+
+## You can use as many geoms as you find fit - but please, be sensible!
+
+```{r}
+trees %>% 
+  dplyr::group_by(borough, display_name) %>% 
+  dplyr::summarise(sp_count = table(display_name)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(borough %in% c('Barking', 
+                            'Enfield', 
+                            'Southwark',
+                            'Waltham Forest', 
+                            'Ealing')) %>% 
+    ggplot2::ggplot(aes(x = borough, 
+                        y = sp_count)) +
+    geom_violin() + 
+    geom_jitter() + 
+    geom_boxplot(width = 0.05) + 
+    xlab(element_blank()) + 
+    ylab('Tree count')
+```
+
+## Now let's add some colour to it!
+
+```{r}
+trees %>% 
+  dplyr::group_by(borough, display_name) %>% 
+  dplyr::summarise(sp_count = table(display_name)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(borough %in% c('Barking', 
+                            'Enfield', 
+                            'Southwark',
+                            'Waltham Forest', 
+                            'Ealing')) %>% 
+    ggplot2::ggplot(aes(x = borough, 
+                        y = sp_count)) +
+    geom_violin() + 
+    geom_jitter(aes(colour = display_name)) + 
+    geom_boxplot(width = 0.05) + 
+    xlab(element_blank()) + 
+    ylab('Tree count') 
+```
+
+## Talking about colour, I don't like the standard colour palette
+
+```{r}
+trees %>% 
+  dplyr::group_by(borough, display_name) %>% 
+  dplyr::summarise(sp_count = table(display_name)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(borough %in% c('Barking', 
+                            'Enfield', 
+                            'Southwark',
+                            'Waltham Forest', 
+                            'Ealing')) %>% 
+    ggplot2::ggplot(aes(x = borough, 
+                        y = sp_count)) +
+    geom_violin() + 
+    geom_jitter(aes(colour = display_name)) + 
+    geom_boxplot(width = 0.05) + 
+    xlab(element_blank()) + 
+    ylab('Tree count') + 
+    scale_color_viridis_d(option = "D")
+```
+
+```{r}
+trees %>% 
+  dplyr::group_by(borough, display_name) %>% 
+  dplyr::summarise(sp_count = table(display_name)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::filter(borough %in% c('Barking', 
+                            'Enfield', 
+                            'Southwark',
+                            'Waltham Forest', 
+                            'Ealing')) %>% 
+  
+    ggplot2::ggplot(aes(x = borough, 
+                        y = sp_count)) +
+    geom_col(aes(fill = display_name)) +
+    #coord_flip() +
+    xlab(element_blank()) + 
+    ylab('Tree count') + 
+    scale_fill_viridis_d(option = "D")
+```
+
+# Maps!
+
+```{r}
+set.seed(42)
+
+trees_sf <- trees %>% 
+  dplyr::sample_n(7000) %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+```
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf()
+```
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  xlim(-0.4,0.4) + 
+  ylim(51.3,51.7)
+```
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  geom_sf(data = trees_sf) + 
+  xlim(-0.6,0.4) + 
+  ylim(51.3,51.7)
+```
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  geom_sf(data = trees_sf, 
+          aes(colour = display_name)) + 
+  xlim(-0.6,0.4) + 
+  ylim(51.3,51.7) + 
+  scale_colour_viridis_d(option = "A")
+```
+
+## Everybody loves themes!
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  geom_sf(data = trees_sf, 
+          aes(colour = display_name)) + 
+  xlim(-0.6,0.4) + 
+  ylim(51.3,51.7) + 
+  scale_colour_viridis_d(option = "A") + 
+  theme_map()
+```
+
+```{r}
+ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  geom_sf(data = trees_sf, 
+          aes(colour = display_name)) + 
+  xlim(-0.6,0.4) + 
+  ylim(51.3,51.7) + 
+  scale_colour_viridis_d(option = "A") + 
+  theme(legend.position = "right", 
+        legend.direction = "vertical")
+```
+
+# ggplot2 plots are objects!
+
+```{r}
+ldn_plot <- ggplot2::ggplot(lad_sf) + 
+  geom_sf() + 
+  geom_sf(data = trees_sf, 
+          aes(colour = display_name)) + 
+  xlim(-0.6,0.4) + 
+  ylim(51.3,51.7) + 
+  scale_colour_viridis_d(option = "A") + 
+  theme(legend.position = "right", 
+        legend.direction = "vertical")
+```
+
+```{r}
+ldn_plot + theme_bw()
+```
+
+```{r}
+ldn_plot
+```
+
+```{r}
+ldn_plot + scale_colour_viridis_d()
+```
+
+## Set-up ggplot2 theme
+
+```{r}
+# Define gg theme
+
+theme_set(theme_bw() + 
+          theme_bw(base_size = 20) + 
+          theme(panel.border = element_rect(size = 1.5)))
+```
