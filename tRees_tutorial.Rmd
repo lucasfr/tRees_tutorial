@@ -1,0 +1,25 @@
+---
+title: "Trees of London"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+trees <- readr::read_csv(file = 'https://data.london.gov.uk/download/local-authority-maintained-trees/c52e733d-bf7e-44b8-9c97-827cb2bc53be/london_street_trees_gla_20180214.csv')
+
+pop <- readr::read_csv(file = 'https://data.london.gov.uk/download/land-area-and-population-density-ward-and-borough/77e9257d-ad9d-47aa-aeed-59a00741f301/housing-density-borough.csv') %>% 
+  dplyr::filter(Year == 2020) %>% 
+  dplyr::rename(borough = Name)
+
+borough_trees <- trees %>% 
+  dplyr::group_by(borough) %>% 
+  dplyr::summarise(t_count = table(borough)) %>% 
+  dplyr::ungroup()
+
+borough_trees <- merge(borough_trees, pop)
+```
+
